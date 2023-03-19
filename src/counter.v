@@ -1,5 +1,13 @@
 `default_nettype none
 
+
+module diferential_muxpga (
+  input [7:0] io_in,
+  output [7:0] io_out
+);
+    seven_segment_seconds s(io_in, io_out);
+endmodule
+
 module seven_segment_seconds #( parameter MAX_COUNT = 1000 ) (
   input [7:0] io_in,
   output [7:0] io_out
