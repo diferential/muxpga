@@ -9,9 +9,9 @@ module diferential_muxpga (
    wire        reset = io_in[1];
    wire [3:0]  cfg = io_in[6:3];
 
-   localparam  ROWS = 4;
-   localparam  COLS = 4;
-   localparam  BITS = 4;
+   localparam  ROWS = 3;
+   localparam  COLS = 3;
+   localparam  BITS = 3;
 
    generate
       genvar   row;
@@ -59,13 +59,16 @@ module diferential_muxpga (
 endmodule
 
 module diferential_cell
+  #(
+    parameter B = 3
+   )
   (
     input        clk,
     input        reset,
-    input [3:0]  in1,
-    input [3:0]  in2,
+    input [B-1:0]  in1,
+    input [B-1:0]  in2,
     input [3:0]  cfg,
-    output [3:0] q
+    output [B-1:0] q
     );
 
    reg [3:0]    dff;
@@ -90,5 +93,6 @@ module diferential_cell
 
    // This the fact that we have non-registered outputs potentially could have cycles.
    // I'm curious what the synthesis tools will do here.
-   assign q = cfg[1] ? dff : f_out;
+   // assign q = cfg[1] ? dff : f_out;
+   assign q = dff;
 endmodule
