@@ -9,9 +9,9 @@ module diferential_muxpga (
    wire        reset = io_in[1];
    wire [3:0]  cfg = io_in[6:3];
 
-   localparam  ROWS = 3;
-   localparam  COLS = 3;
-   localparam  BITS = 3;
+   localparam  ROWS = 8;
+   localparam  COLS = 8;
+   localparam  BITS = 4;
 
    generate
       genvar   row;
@@ -20,7 +20,7 @@ module diferential_muxpga (
       wire [BITS-1:0] cell_q[0:COLS-1][0:ROWS-1] ;
       for (row = 0; row < ROWS; row = row + 1'b1) begin
          for (col = 0; col < COLS; col = col + 1'b1) begin
-            reg [3:0] cfg_mux;
+            wire [3:0] cfg_mux;
             assign cfg_mux = cfg;
             
             reg [BITS-1:0] cell_in1;
