@@ -2,7 +2,6 @@
 
 // TODO(emilian): add cfg scan chain
 // TODO(emilian): pass in inputs
-// TODO(emilian): add some preliminary tests
 
 module diferential_muxpga (
   input [7:0] io_in,
