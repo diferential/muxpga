@@ -27,9 +27,9 @@ module diferential_muxpga (
             reg [BITS-1:0] cell_in2;
 
             localparam rminus1 = (ROWS + row - 1) % ROWS;
-            localparam rplus1 = (ROWS + row - 1) % ROWS;
+            localparam rplus1 = (ROWS + row + 1) % ROWS;
             localparam cminus1 = (COLS + col - 1) % COLS;
-            localparam cplus1 = (COLS + col - 1) % COLS;
+            localparam cplus1 = (COLS + col + 1) % COLS;
 
             always @(*) begin
                case(cfg_mux[1:0])
@@ -64,7 +64,7 @@ endmodule
 
 module diferential_cell
   #(
-    parameter B = 3
+    parameter B = 4
    )
   (
     input        clk,
