@@ -21,6 +21,8 @@ module diferential_muxpga (
       for (row = 0; row < ROWS; row = row + 1'b1) begin
          for (col = 0; col < COLS; col = col + 1'b1) begin
             reg [3:0] cfg_mux;
+            assign cfg_mux = cfg;
+            
             reg [BITS-1:0] cell_in1;
             reg [BITS-1:0] cell_in2;
 
@@ -55,6 +57,8 @@ module diferential_muxpga (
          assign io_out[row] = cell_q[row][COLS - 1'b1];
       end
    endgenerate
+
+   assign io_out = {cell_q[ROWS - 1][0], cell_q[ROWS - 1][COLS - 1]};
 
 endmodule
 
