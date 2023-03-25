@@ -9,8 +9,8 @@ module diferential_muxpga (
    wire        reset = io_in[1];
    wire [3:0]  cfg = io_in[6:3];
 
-   localparam  ROWS = 8;
-   localparam  COLS = 8;
+   localparam  ROWS = 5;
+   localparam  COLS = 5;
    localparam  BITS = 4;
 
    generate
