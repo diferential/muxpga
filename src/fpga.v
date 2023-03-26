@@ -1,20 +1,18 @@
 `default_nettype none
 
-// TODO(emilian): add cfg scan chain
-// TODO(emilian): pass in inputs
-
 module diferential_muxpga (
   input [7:0] io_in,
-  output [7:0] io_out
+  output reg [7:0] io_out
 );
 
    wire        clk = io_in[0];
    wire        reset = io_in[1];
-   wire [3:0]  cfg_mux = {io_in[7:6], io_in[7:6]};
-   wire [3:0]  cfg = 4'b0;
+   wire [3:0]  nibble_in = io_in[5:2];
+   wire [1:0]  cmd = io_in[7:6];
 
    localparam  ROWS = 5;
    localparam  COLS = 3;
+   localparam  CELLS = (ROWS-1)*COLS;
 
    // input/output register bits
    localparam  CELL_BITS = 4;
@@ -24,7 +22,32 @@ module diferential_muxpga (
    localparam  INPUT_MUX_BITS = 2;
    localparam  BOTH_MUX_BITS = 4;
 
+   reg [3:0]   cell_cfg[2*CELLS:0];
    wire [CELL_BITS-1:0] cell_q[0:ROWS-1][0:COLS-1];
+
+   generate
+      genvar            i;
+
+      for (i = 1; i < 2*CELLS; i = i + 1'b1) begin
+         always @(posedge clk) begin
+            if (reset)
+              cell_cfg[i] <= 0;
+            else if (cmd == 0) begin
+               cell_cfg[i] <= cell_cfg[i-1];
+            end else begin
+               cell_cfg[i] <= cell_cfg[i];
+            end
+         end
+      end
+
+      always @(posedge clk) begin
+         if (cmd == 0) begin
+            cell_cfg[0] <= nibble_in;
+         end else begin
+            cell_cfg[0] <= cell_cfg[0];
+         end
+      end
+   endgenerate
 
    generate
       genvar   row;
@@ -33,7 +56,10 @@ module diferential_muxpga (
       for (row = 0; row < ROWS; row = row + 1'b1) begin
          for (col = 0; col < COLS; col = col + 1'b1) begin
             if (row != 0) begin
-               wire [BOTH_MUX_BITS-1:0] mux_bits = cfg_mux;
+               localparam cfg_i = 2*((row - 1)*COLS + col);
+
+               wire [BOTH_MUX_BITS-1:0] mux_bits = cell_cfg[cfg_i];
+               wire [BOTH_MUX_BITS-1:0] cfg_bits = cell_cfg[cfg_i + 1];
 
                reg [CELL_BITS-1:0]      cell_in1;
                reg [CELL_BITS-1:0]      cell_in2;
@@ -52,7 +78,7 @@ module diferential_muxpga (
                     default:  cell_in1 = cell_q[row][col];
                   endcase
                end
-               
+
                always @(*) begin
                   case(mux_bits[BOTH_MUX_BITS-1:INPUT_MUX_BITS])
                     0:  cell_in2 = cell_q[rminus1][col];
@@ -62,40 +88,58 @@ module diferential_muxpga (
                     default:  cell_in2 = cell_q[row][col];
                   endcase
                end
-               diferential_cell c(clk, reset, cell_in1, cell_in2, cfg, cell_q[row][col]);
+
+               wire en = cmd == 2'b01;
+               diferential_cell c(clk, reset, en, cell_in1, cell_in2,
+                                  cfg_bits, cell_q[row][col]);
             end else begin
-               assign cell_q[row][col] = io_in[5:2];
+               assign cell_q[row][col] = nibble_in;
             end
          end
       end
    endgenerate
 
-   assign io_out = {cell_q[ROWS - 1][0], cell_q[ROWS - 1][COLS - 1]};
+   // TODO(emilian): Make output stationary out <= in by default.
+   always @(*) begin
+      case(cmd)
+        0: io_out = {cell_q[ROWS - 1][0], cell_q[ROWS - 1][COLS - 1]};
+        1: io_out = {cell_cfg[2*CELLS - 1], 4'b0};
+        2: io_out = {cell_cfg[2*CELLS - 1], 4'b0};
+        3: io_out = {cell_cfg[2*CELLS - 1], 4'b0};
+        default:  io_out = 4'b0;
+      endcase
+   end
 endmodule
 
+// TODO(emilian): Refine cell function.
 module diferential_cell
   #(
     parameter B = 4
    )
   (
-    input        clk,
-    input        reset,
+    input          clk,
+    input          reset,
+    input          en,
     input [B-1:0]  in1,
     input [B-1:0]  in2,
-    input [3:0]  cfg,
+    input [3:0]    cfg,
     output [B-1:0] q
     );
 
    reg [3:0]    dff;
    reg [3:0]    f_out;
-   
+
    always @(*) begin
-      case(cfg[1:0])
-        0:  f_out = in1 | in2;
-        1:  f_out = in1 & in2;
-        2:  f_out = in1;
-        3:  f_out = in2;
-      endcase
+      if (en) begin
+         case(cfg[1:0])
+           0:  f_out = in1 | in2;
+           1:  f_out = in1 & in2;
+           2:  f_out = in1;
+           3:  f_out = in2;
+         endcase
+      end else begin
+         f_out = dff;
+      end
    end
 
    always @(posedge clk) begin
