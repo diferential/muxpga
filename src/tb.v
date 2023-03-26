@@ -11,7 +11,7 @@ module tb (
     input        clk,
     input        rst,
     input [3:0]  io_in,
-    input [1:0]  cfg_mux,
+    input [1:0]  cmd,
     output [8:0] segments
    );
 
@@ -23,7 +23,7 @@ module tb (
     end
 
     // wire up the inputs and outputs
-    wire [7:0] inputs = {cfg_mux, io_in, rst, clk};
+    wire [7:0] inputs = {cmd, io_in, rst, clk};
     wire [7:0] outputs;
     assign segments = outputs[7:0];
 

@@ -41,7 +41,9 @@ module diferential_muxpga (
       end
 
       always @(posedge clk) begin
-         if (cmd == 0) begin
+         if (reset)
+           cell_cfg[0] <= 0;
+         else if (cmd == 0) begin
             cell_cfg[0] <= nibble_in;
          end else begin
             cell_cfg[0] <= cell_cfg[0];
@@ -55,7 +57,11 @@ module diferential_muxpga (
 
       for (row = 0; row < ROWS; row = row + 1'b1) begin
          for (col = 0; col < COLS; col = col + 1'b1) begin
-            if (row != 0) begin
+            if (row == 0) begin
+               // First row is virtual .. it gets inputs only
+               assign cell_q[row][col] = nibble_in;
+            end else begin
+               // Rows 1..ROWS-1 have FPGA cells, each with two cfg nibbles.
                localparam cfg_i = 2*((row - 1)*COLS + col);
 
                wire [BOTH_MUX_BITS-1:0] mux_bits = cell_cfg[cfg_i];
@@ -92,8 +98,6 @@ module diferential_muxpga (
                wire en = cmd == 2'b01;
                diferential_cell c(clk, reset, en, cell_in1, cell_in2,
                                   cfg_bits, cell_q[row][col]);
-            end else begin
-               assign cell_q[row][col] = nibble_in;
             end
          end
       end
@@ -102,8 +106,8 @@ module diferential_muxpga (
    // TODO(emilian): Make output stationary out <= in by default.
    always @(*) begin
       case(cmd)
-        0: io_out = {cell_q[ROWS - 1][0], cell_q[ROWS - 1][COLS - 1]};
-        1: io_out = {cell_cfg[2*CELLS - 1], 4'b0};
+        0: io_out = {cell_cfg[2*CELLS - 1], 4'b0};
+        1: io_out = {cell_q[ROWS - 1][0], cell_q[ROWS - 1][COLS - 1]};
         2: io_out = {cell_cfg[2*CELLS - 1], 4'b0};
         3: io_out = {cell_cfg[2*CELLS - 1], 4'b0};
         default:  io_out = 4'b0;
