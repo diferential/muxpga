@@ -70,34 +70,15 @@ module diferential_muxpga (
                reg [CELL_BITS-1:0]      cell_in1;
                reg [CELL_BITS-1:0]      cell_in2;
 
-               localparam               rminus1 = (ROWS + row - 1) % ROWS;
-               localparam               rplus1 = (ROWS + row + 1) % ROWS;
-               localparam               cminus1 = (COLS + col - 1) % COLS;
-               localparam               cplus1 = (COLS + col + 1) % COLS;
+               diferential_mux_in #(CELL_BITS, ROWS, COLS, row, col)
+               inmux1(mux_bits[INPUT_MUX_BITS-1:0], cell_q, cell_in1);
 
-               always @(*) begin
-                  case(mux_bits[INPUT_MUX_BITS-1:0])
-                    0:  cell_in1 = cell_q[rminus1][col];
-                    1:  cell_in1 = cell_q[rminus1][cminus1];
-                    2:  cell_in1 = cell_q[row][cminus1];
-                    3:  cell_in1 = cell_q[row][cplus1];
-                    default:  cell_in1 = cell_q[row][col];
-                  endcase
-               end
-
-               always @(*) begin
-                  case(mux_bits[BOTH_MUX_BITS-1:INPUT_MUX_BITS])
-                    0:  cell_in2 = cell_q[rminus1][col];
-                    1:  cell_in2 = cell_q[rminus1][cminus1];
-                    2:  cell_in2 = cell_q[row][cminus1];
-                    3:  cell_in2 = cell_q[row][cplus1];
-                    default:  cell_in2 = cell_q[row][col];
-                  endcase
-               end
+               diferential_mux_in #(CELL_BITS, ROWS, COLS, row, col)
+               inmux2(mux_bits[BOTH_MUX_BITS-1:INPUT_MUX_BITS], cell_q, cell_in2);
 
                wire en = cmd == 2'b01;
-               diferential_cell c(clk, reset, en, cell_in1, cell_in2,
-                                  cfg_bits, cell_q[row][col]);
+               diferential_cell#(CELL_BITS) c(clk, reset, en, cell_in1, cell_in2,
+                                              cfg_bits, cell_q[row][col]);
             end
          end
       end
@@ -115,10 +96,56 @@ module diferential_muxpga (
    end
 endmodule
 
+module diferential_mux_in
+  #(
+    parameter int B = 4,
+    parameter int ROWS = 0,
+    parameter int COLS = 0,
+    parameter int row = 0,
+    parameter int col = 0
+   )
+  (
+    input [1:0]      sel,
+    input [B-1:0]      cell_q[0:ROWS-1][0:COLS-1],
+    output reg [B-1:0] q
+    );
+
+   localparam          rminus1 = (ROWS + row - 1) % ROWS;
+   localparam          rplus1 = (ROWS + row + 1) % ROWS;
+   localparam          cminus1 = (COLS + col - 1) % COLS;
+   localparam          cplus1 = (COLS + col + 1) % COLS;
+
+   if (col == 0 || col == 0) begin
+      always @(*) begin
+         case(sel)
+           0:  q = cell_q[rminus1][col];
+           1:  q = cell_q[rplus1][col];
+           2:  q = cell_q[row][cminus1];
+           // Since col == 0 is routed already with cases 0&1 or 2 above, we make this special.
+           // Get input from a cell in the top row instead.
+           3:  q = cell_q[ROWS-1][(row+col) % COLS];
+           // should never happen
+           default:  q = 0;
+         endcase
+      end
+   end else begin
+      always @(*) begin
+         case(sel)
+           0:  q = cell_q[rminus1][col];
+           1:  q = cell_q[rplus1][col];
+           2:  q = cell_q[row][cminus1];
+           3:  q = cell_q[row][0];
+           // should never happen
+           default:  q = 0;
+         endcase
+      end
+   end
+endmodule
+
 // TODO(emilian): Refine cell function.
 module diferential_cell
   #(
-    parameter B = 4
+    parameter int B = 4
    )
   (
     input          clk,
