@@ -1,39 +1,31 @@
-# Makefile
-# See https://docs.cocotb.org/en/stable/quickstart.html for more info
 
-# defaults
-SIM ?= icarus
-TOPLEVEL_LANG ?= verilog
+TESTS := tests/*
 
-# normal simulation
-ifneq ($(GATES),yes)
+.PHONY: $(TESTS)
+.PHONY: all
 
-# this is the only part you should need to modify:
-VERILOG_SOURCES += $(PWD)/tb.v $(PWD)/fpga.v 
+all: $(TESTS) results.xml
 
-else
+EMILIAN_LOCAL_DEV ?= no
 
-# gate level simulation requires some extra setup, you shouldn't need to touch this
-COMPILE_ARGS    += -DGL_TEST
-COMPILE_ARGS    += -DFUNCTIONAL
-COMPILE_ARGS    += -DUSE_POWER_PINS
-COMPILE_ARGS    += -DSIM
-COMPILE_ARGS    += -DUNIT_DELAY=#1
-VERILOG_SOURCES += $(PDK_ROOT)/sky130B/libs.ref/sky130_fd_sc_hd/verilog/primitives.v
-VERILOG_SOURCES += $(PDK_ROOT)/sky130B/libs.ref/sky130_fd_sc_hd/verilog/sky130_fd_sc_hd.v
+ifeq ($(EMILIAN_LOCAL_DEV),yes)
 
-# this gets copied in by the GDS action workflow
-VERILOG_SOURCES += $(PWD)/tb.v $(PWD)/gate_level_netlist.v
-endif
-
-# TOPLEVEL is the name of the toplevel module in your Verilog or VHDL file
-TOPLEVEL = tb
-
-# MODULE is the basename of the Python test file
-MODULE = test
-
-# include cocotb's make rules to take care of the simulator setup
-include $(shell cocotb-config --makefiles)/Makefile.sim
-
+# Regenerate plain Verilog from SystemVerilog on local development
+# Will submit this to github as we may not have sv2v upstream.
 fpga.v: fpga.sv
 	sv2v fpga.sv > fpga.v
+
+endif
+
+$(TESTS): fpga.v
+	@cd $@ && $(MAKE)
+
+results.xml: $(TESTS)
+	cat tests/*/results.xml > results.xml
+
+.PHONY: clean
+clean:
+	$(foreach TEST, $(TESTS), $(MAKE) -C $(TEST) clean;)
+
+regression:
+	$(foreach TEST, $(TESTS), $(MAKE) -C $(TEST) regression;
