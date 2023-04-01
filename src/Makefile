@@ -34,3 +34,6 @@ MODULE = test
 
 # include cocotb's make rules to take care of the simulator setup
 include $(shell cocotb-config --makefiles)/Makefile.sim
+
+fpga.v: fpga.sv
+	sv2v fpga.sv > fpga.v
