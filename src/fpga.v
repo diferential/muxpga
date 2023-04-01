@@ -16,7 +16,7 @@ module diferential_muxpga (
 	localparam CFG_BITS = 4;
 	localparam INPUT_MUX_BITS = 2;
 	localparam BOTH_MUX_BITS = 4;
-	reg [3:0] cell_cfg [24:0];
+	reg [3:0] cell_cfg [23:0];
 	wire [59:0] cell_q;
 	genvar i;
 	generate
@@ -37,6 +37,14 @@ module diferential_muxpga (
 			cell_cfg[0] <= nibble_in;
 		else
 			cell_cfg[0] <= cell_cfg[0];
+	always @(*)
+		case (cmd)
+			0: io_out = {cell_cfg[23], 4'b0000};
+			1: io_out = {cell_q[8+:4], cell_q[0+:4]};
+			2: io_out = {cell_cfg[23], 4'b0000};
+			3: io_out = {cell_cfg[23], 4'b0000};
+			default: io_out = 4'b0000;
+		endcase
 	genvar row;
 	genvar col;
 	generate
@@ -91,14 +99,6 @@ module diferential_muxpga (
 			end
 		end
 	endgenerate
-	always @(*)
-		case (cmd)
-			0: io_out = {cell_cfg[23], 4'b0000};
-			1: io_out = {cell_q[8+:4], cell_q[0+:4]};
-			2: io_out = {cell_cfg[23], 4'b0000};
-			3: io_out = {cell_cfg[23], 4'b0000};
-			default: io_out = 4'b0000;
-		endcase
 endmodule
 module diferential_mux_in (
 	sel,

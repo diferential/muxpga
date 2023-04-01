@@ -22,7 +22,7 @@ module diferential_muxpga (
    localparam  INPUT_MUX_BITS = 2;
    localparam  BOTH_MUX_BITS = 4;
 
-   reg [3:0]   cell_cfg[2*CELLS:0];
+   reg [3:0]   cell_cfg[2*CELLS - 1:0];
    wire [CELL_BITS-1:0] cell_q[0:ROWS-1][0:COLS-1];
 
    generate
@@ -50,6 +50,17 @@ module diferential_muxpga (
          end
       end
    endgenerate
+
+   // TODO(emilian): Make output stationary out <= in by default.
+   always @(*) begin
+      case(cmd)
+        0: io_out = {cell_cfg[2*CELLS - 1], 4'b0};
+        1: io_out = {cell_q[ROWS - 1][0], cell_q[ROWS - 1][COLS - 1]};
+        2: io_out = {cell_cfg[2*CELLS - 1], 4'b0};
+        3: io_out = {cell_cfg[2*CELLS - 1], 4'b0};
+        default:  io_out = 4'b0;
+      endcase
+   end
 
    generate
       genvar   row;
@@ -84,16 +95,6 @@ module diferential_muxpga (
       end
    endgenerate
 
-   // TODO(emilian): Make output stationary out <= in by default.
-   always @(*) begin
-      case(cmd)
-        0: io_out = {cell_cfg[2*CELLS - 1], 4'b0};
-        1: io_out = {cell_q[ROWS - 1][0], cell_q[ROWS - 1][COLS - 1]};
-        2: io_out = {cell_cfg[2*CELLS - 1], 4'b0};
-        3: io_out = {cell_cfg[2*CELLS - 1], 4'b0};
-        default:  io_out = 4'b0;
-      endcase
-   end
 endmodule
 
 module diferential_mux_in

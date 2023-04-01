@@ -12,7 +12,7 @@ module tb (
     input        rst,
     input [3:0]  io_in,
     input [1:0]  cmd,
-    output [8:0] segments
+    output [7:0] io_out
    );
 
     // this part dumps the trace to a vcd file that can be viewed with GTKWave
@@ -25,7 +25,7 @@ module tb (
     // wire up the inputs and outputs
     wire [7:0] inputs = {cmd, io_in, rst, clk};
     wire [7:0] outputs;
-    assign segments = outputs[7:0];
+    assign io_out = outputs[7:0];
 
     // instantiate the DUT
     diferential_muxpga diferential_muxpga(
