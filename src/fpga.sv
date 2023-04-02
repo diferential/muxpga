@@ -156,7 +156,7 @@ module diferential_cell
     input [B-1:0]  in1,
     input [B-1:0]  in2,
     input          mux_same,  // whether we have a single input
-    input [4:0]    cfg,
+    input [3:0]    cfg,
     output [B-1:0] q
     );
 
@@ -168,7 +168,7 @@ module diferential_cell
          case(cfg[1:0])
            0:  f_out = in1 | in2;
            1:  f_out = in1 & in2;
-           2:  f_out = in1 + 1;
+           2:  f_out = in1;
            3:  f_out = in2;
          endcase
       end else begin
@@ -185,7 +185,15 @@ module diferential_cell
    end
 
    // This the fact that we have non-registered outputs potentially could have cycles.
-   // I'm curious what the synthesis tools will do here.
-   assign q = cfg[2] ? f_out : dff;
-   // assign q = dff;
+
+   wire [B-1:0] qq;
+   // Optionally skip DFF to make the cell combinational.
+   assign qq = cfg[2] ? f_out : dff;
+
+   // Buffer to make YOSYS happy, otherwise we get combinational loop errors.
+  `ifdef COCOTB_SIM
+   sky130_fd_sc_hd__buf bufs[3:0] (.A(qq), .X(q) );
+  `else
+   assign q = qq;
+  `endif
 endmodule

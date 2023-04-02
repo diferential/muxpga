@@ -159,7 +159,7 @@ module diferential_cell (
 	input [B - 1:0] in1;
 	input [B - 1:0] in2;
 	input mux_same;
-	input [4:0] cfg;
+	input [3:0] cfg;
 	output wire [B - 1:0] q;
 	reg [3:0] dff;
 	reg [3:0] f_out;
@@ -168,7 +168,7 @@ module diferential_cell (
 			case (cfg[1:0])
 				0: f_out = in1 | in2;
 				1: f_out = in1 & in2;
-				2: f_out = in1 + 1;
+				2: f_out = in1;
 				3: f_out = in2;
 			endcase
 		else
@@ -178,5 +178,7 @@ module diferential_cell (
 			dff <= 0;
 		else
 			dff <= f_out;
-	assign q = (cfg[2] ? f_out : dff);
+	wire [B - 1:0] qq;
+	assign qq = (cfg[2] ? f_out : dff);
+	assign q = qq;
 endmodule
