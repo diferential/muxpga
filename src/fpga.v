@@ -40,16 +40,16 @@ module diferential_muxpga (
 	always @(*)
 		case (cmd)
 			0: io_out = {cell_cfg[23], 4'b0000};
-			1: io_out = {cell_q[8+:4], cell_q[0+:4]};
+			1: io_out = {cell_q[0+:4], cell_q[8+:4]};
 			2: io_out = {cell_cfg[23], 4'b0000};
 			3: io_out = {cell_cfg[23], 4'b0000};
-			default: io_out = 4'b0000;
+			default: io_out = 8'b00000000;
 		endcase
 	genvar row;
 	genvar col;
 	generate
-		for (row = 0; row < ROWS; row = row + 1'b1) begin : genblk2
-			for (col = 0; col < COLS; col = col + 1'b1) begin : genblk1
+		for (row = 0; row < ROWS; row = row + 1'b1) begin : genrow
+			for (col = 0; col < COLS; col = col + 1'b1) begin : gencol
 				if (row == 0) begin : genblk1
 					assign cell_q[(((4 - row) * 3) + (2 - col)) * 4+:4] = nibble_in;
 				end
@@ -118,7 +118,7 @@ module diferential_mux_in (
 	localparam cminus1 = ((COLS + col) - 1) % COLS;
 	localparam cplus1 = ((COLS + col) + 1) % COLS;
 	generate
-		if ((col == 0) || (col == 0)) begin : genblk1
+		if ((col == 0) || (col == 1)) begin : genblk1
 			always @(*)
 				case (sel)
 					0: q = cell_q[((((ROWS - 1) - rminus1) * COLS) + ((COLS - 1) - col)) * B+:B];
@@ -155,7 +155,7 @@ module diferential_cell (
 	input en;
 	input [B - 1:0] in1;
 	input [B - 1:0] in2;
-	input [3:0] cfg;
+	input [2:0] cfg;
 	output wire [B - 1:0] q;
 	reg [3:0] dff;
 	reg [3:0] f_out;

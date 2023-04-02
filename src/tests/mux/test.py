@@ -11,7 +11,13 @@ COLS = 3;
 RST = 1
 NRST = 0
 
-async def do_input_cycle(dut, rst, io_in, cmd):
+IN_BELOW = 0
+IN_ABOVE = 1
+IN_LEFT  = 2
+IN_COL0  = 3
+IN_TOPROW  = 3
+
+async def do_input_cycle(dut, rst, io_in, cmd, silent=False):
     await Timer(1, units='us')
 
     dut.rst.value = rst;
@@ -19,7 +25,8 @@ async def do_input_cycle(dut, rst, io_in, cmd):
     dut.cmd.value = cmd;
     dut.clk.value = 0;
 
-    dut._log.info("sending rst={} in={} cmd={}".format(rst, io_in, cmd));
+    if not silent:
+        dut._log.info("sending rst={} in={} cmd={}".format(rst, io_in, cmd));
     await Timer(2, units='us');
     dut.clk.value = 1;
     await Timer(3, units='us');
@@ -27,7 +34,8 @@ async def do_input_cycle(dut, rst, io_in, cmd):
     await Timer(4, units='us');
 
     val = dut.io_out.value;
-    dut._log.info("clock out {}".format(val));
+    if not silent:
+        dut._log.info("clock out {}".format(val));
     return val // 16;
 
 async def do_reset(dut):
@@ -42,6 +50,64 @@ def assert_equal_array(a1, a2):
     a1str = ",".join([str(x) for x in a1])
     a2str = ",".join([str(x) for x in a2])
     assert a1str == a2str, "Expected equals [{}] != [{}]".format(a1str, a2str);
+
+async def push_config_bits(dut, mux, cfg, silent=False):
+    for r in range(ROWS - 2, -1, -1):
+        for c in range(COLS - 1, -1, -1):
+            await do_input_cycle(dut, NRST, cfg[r][c], CMD_SHIFT_CFG);
+            await do_input_cycle(dut, NRST, mux[r][c], CMD_SHIFT_CFG);
+
+# Make a spiraling mux across rows from 0,0 to R-1,0 => R-1,1 => 0,1
+# If COLS is odd, the spiral will reach the other corner on the output.
+def make_zigzag_mux():
+    mux = make_cfg_matrix(0);
+    for c in range(COLS):
+        rows = range(ROWS - 1) if (c % 2 == 0) else range(ROWS - 2, -1, -1);
+        d = (IN_BELOW * 4 + IN_BELOW) if  c % 2 == 0 else IN_ABOVE*4 + IN_ABOVE;
+        first = True;
+        for r in rows:
+            print("Pushingg r={} c={} f={}".format(r, c, first));
+            mux[r][c] = (IN_LEFT*4 + IN_LEFT) if first and c !=0 else d;
+            first = False
+    return mux;
+
+def make_cfg_matrix(x):
+    v = [];
+    for r in range(ROWS - 1):
+        v.append([x] * COLS);
+    return v;
+
+async def push_zigzag_config(dut, silent=False):
+    return await push_config_bits(dut, make_zigzag_mux(), make_cfg_matrix(0), silent);
+
+@cocotb.test()
+async def test_zigzag_dff(dut):
+    await do_reset(dut);
+
+    dut._log.info("Pushing zig zag config");
+    await push_zigzag_config(dut, silent = False)
+    
+    dut.rst.value = 0;
+    dut.clk.value = 0;
+    dut.cmd.value = CMD_RUN;
+    await Timer(1, units='us')
+
+    val = dut.io_out.value.integer % 16;
+    # needed if we want the values kept inside
+    dut.io_in.value = val;
+
+    dut._log.info("Getting values out");
+
+    v = [val];
+    while len(v) < 2*(ROWS - 1) * COLS:
+        val = await do_input_cycle(dut, NRST, len(v) % 16, CMD_RUN, silent = True);
+        v.append(val);
+        # needed if we want the values kept inside
+        # dut.io_in.value = val;
+
+    # one big flip flop chain of 12 DFFs
+    expected = [0,0,0,0,0,0,0,0,0,0,0,0,1,2,3,4,5,6,7,8,9,10,11,12]
+    assert_equal_array(v, expected);
 
 @cocotb.test()
 async def test_cfg0_isdff(dut):
@@ -106,8 +172,8 @@ async def test_cfg02_bigloop_mux(dut):
 
     for r in range(ROWS - 1):
         for c in range(COLS):
-            # 6 routes both inputs from left, 0 from below
-            val = 6 if c == COLS - 1  else 0;
+            # 10 routes both inputs from left, 0 from a lower row
+            val = 10 if c == COLS - 1  else 0;
             dut._log.info("pushing {}".format(val))
             await Timer(1, units='us')
             dut.io_in.value = val;

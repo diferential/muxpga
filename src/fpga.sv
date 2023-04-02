@@ -55,10 +55,10 @@ module diferential_muxpga (
    always @(*) begin
       case(cmd)
         0: io_out = {cell_cfg[2*CELLS - 1], 4'b0};
-        1: io_out = {cell_q[ROWS - 1][0], cell_q[ROWS - 1][COLS - 1]};
+        1: io_out = {cell_q[ROWS - 1][COLS - 1], cell_q[ROWS - 1][0]};
         2: io_out = {cell_cfg[2*CELLS - 1], 4'b0};
         3: io_out = {cell_cfg[2*CELLS - 1], 4'b0};
-        default:  io_out = 4'b0;
+        default:  io_out = 8'b0;
       endcase
    end
 
@@ -66,8 +66,8 @@ module diferential_muxpga (
       genvar   row;
       genvar   col;
 
-      for (row = 0; row < ROWS; row = row + 1'b1) begin
-         for (col = 0; col < COLS; col = col + 1'b1) begin
+      for (row = 0; row < ROWS; row = row + 1'b1) begin : genrow
+         for (col = 0; col < COLS; col = col + 1'b1) begin : gencol
             if (row == 0) begin
                // First row is virtual .. it gets inputs only
                assign cell_q[row][col] = nibble_in;
@@ -106,17 +106,17 @@ module diferential_mux_in
     parameter int col = 0
    )
   (
-    input [1:0]      sel,
-    input [B-1:0]      cell_q[0:ROWS-1][0:COLS-1],
-    output reg [B-1:0] q
-    );
+   input [1:0]        sel,
+   input [B-1:0]      cell_q[0:ROWS-1][0:COLS-1],
+   output reg [B-1:0] q
+   );
 
    localparam          rminus1 = (ROWS + row - 1) % ROWS;
    localparam          rplus1 = (ROWS + row + 1) % ROWS;
    localparam          cminus1 = (COLS + col - 1) % COLS;
    localparam          cplus1 = (COLS + col + 1) % COLS;
 
-   if (col == 0 || col == 0) begin
+   if (col == 0 || col == 1) begin
       always @(*) begin
          case(sel)
            0:  q = cell_q[rminus1][col];
@@ -154,7 +154,7 @@ module diferential_cell
     input          en,
     input [B-1:0]  in1,
     input [B-1:0]  in2,
-    input [3:0]    cfg,
+    input [2:0]    cfg,
     output [B-1:0] q
     );
 
