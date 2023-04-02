@@ -74,6 +74,7 @@ module diferential_muxpga (
             end else begin
                // Rows 1..ROWS-1 have FPGA cells, each with two cfg nibbles.
                localparam cfg_i = 2*((row - 1)*COLS + col);
+               localparam bigcell = col % 2;  // big cells at col1, 3...
 
                wire [BOTH_MUX_BITS-1:0] mux_bits = cell_cfg[cfg_i];
                wire                     mux_same = mux_bits[1:0] == mux_bits[3:2];
@@ -89,8 +90,8 @@ module diferential_muxpga (
                inmux2(mux_bits[BOTH_MUX_BITS-1:INPUT_MUX_BITS], cell_q, cell_in2);
 
                wire en = cmd == 2'b01;
-               diferential_cell#(CELL_BITS) c(clk, reset, en, cell_in1, cell_in2,
-                                              mux_same, cfg_bits, cell_q[row][col]);
+               diferential_cell#(CELL_BITS, bigcell) c(clk, reset, en, cell_in1, cell_in2,
+                                                       mux_same, cfg_bits, cell_q[row][col]);
             end
          end
       end
@@ -147,7 +148,8 @@ endmodule
 // TODO(emilian): Refine cell function.
 module diferential_cell
   #(
-    parameter int B = 4
+    parameter int B = 4,
+    parameter int BIGCELL = 0
    )
   (
     input          clk,
@@ -165,13 +167,22 @@ module diferential_cell
 
    always @(*) begin
       if (en) begin
-         case(cfg[1:0])
-           0:  f_out = in1 | in2;
-           1:  f_out = in1;
-           2:  f_out = in1;
-           3:  f_out = in2;
-         endcase
-      end else begin
+         if (BIGCELL) begin
+           case(cfg[1:0])
+             0:  f_out = in1 | in2;
+             1:  f_out = in1 + in2;
+             2:  f_out = in1;
+             3:  f_out = in2;
+           endcase
+         end else begin  // !BIGCELL
+           case(cfg[1:0])
+             0:  f_out = in1 | in2;
+             1:  f_out = in1 & in2;
+             2:  f_out = in1 == in2;
+             3:  f_out = in1;
+           endcase
+         end
+      end else begin  // !en
          f_out = dff;
       end
    end

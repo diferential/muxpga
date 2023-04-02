@@ -55,6 +55,7 @@ module diferential_muxpga (
 				end
 				else begin : genblk1
 					localparam cfg_i = 2 * (((row - 1) * COLS) + col);
+					localparam bigcell = (col + 1) % 2;
 					wire [3:0] mux_bits = cell_cfg[cfg_i];
 					wire mux_same = mux_bits[1:0] == mux_bits[3:2];
 					wire [3:0] cfg_bits = cell_cfg[cfg_i + 1];
@@ -87,7 +88,10 @@ module diferential_muxpga (
 						.q(sv2v_tmp_inmux2_q)
 					);
 					wire en = cmd == 2'b01;
-					diferential_cell #(.B(CELL_BITS)) c(
+					diferential_cell #(
+						.B(CELL_BITS),
+						.BIGCELL(bigcell)
+					) c(
 						.clk(clk),
 						.reset(reset),
 						.en(en),
@@ -153,6 +157,7 @@ module diferential_cell (
 	q
 );
 	parameter signed [31:0] B = 4;
+	parameter signed [31:0] BIGCELL = 0;
 	input clk;
 	input reset;
 	input en;
@@ -164,13 +169,22 @@ module diferential_cell (
 	reg [3:0] dff;
 	reg [3:0] f_out;
 	always @(*)
-		if (en)
-			case (cfg[1:0])
-				0: f_out = in1 | in2;
-				1: f_out = in1;
-				2: f_out = in1;
-				3: f_out = in2;
-			endcase
+		if (en) begin
+			if (BIGCELL)
+				case (cfg[1:0])
+					0: f_out = in1 | in2;
+					1: f_out = in1 + in2;
+					2: f_out = in1;
+					3: f_out = in2;
+				endcase
+			else
+				case (cfg[1:0])
+					0: f_out = in1 | in2;
+					1: f_out = in1 & in2;
+					2: f_out = in1 == in2;
+					3: f_out = in1;
+				endcase
+		end
 		else
 			f_out = dff;
 	always @(posedge clk)
