@@ -12,6 +12,10 @@ ifneq ($(GATES),yes)
 # this is the only part you should need to modify:
 VERILOG_SOURCES += $(PWD)/tb.v $(SRC_TOPDIR)/fpga.v 
 
+# we use the gates directly in the design for the buffers, include these.
+VERILOG_SOURCES += $(PDK_ROOT)/sky130B/libs.ref/sky130_fd_sc_hd/verilog/primitives.v
+VERILOG_SOURCES += $(PDK_ROOT)/sky130B/libs.ref/sky130_fd_sc_hd/verilog/sky130_fd_sc_hd.v
+
 else
 
 # gate level simulation requires some extra setup, you shouldn't need to touch this

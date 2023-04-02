@@ -167,7 +167,7 @@ module diferential_cell (
 		if (en)
 			case (cfg[1:0])
 				0: f_out = in1 | in2;
-				1: f_out = in1 & in2;
+				1: f_out = in1;
 				2: f_out = in1;
 				3: f_out = in2;
 			endcase
