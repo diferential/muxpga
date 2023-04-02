@@ -76,6 +76,7 @@ module diferential_muxpga (
                localparam cfg_i = 2*((row - 1)*COLS + col);
 
                wire [BOTH_MUX_BITS-1:0] mux_bits = cell_cfg[cfg_i];
+               wire                     mux_same = mux_bits[1:0] == mux_bits[3:2];
                wire [BOTH_MUX_BITS-1:0] cfg_bits = cell_cfg[cfg_i + 1];
 
                reg [CELL_BITS-1:0]      cell_in1;
@@ -89,7 +90,7 @@ module diferential_muxpga (
 
                wire en = cmd == 2'b01;
                diferential_cell#(CELL_BITS) c(clk, reset, en, cell_in1, cell_in2,
-                                              cfg_bits, cell_q[row][col]);
+                                              mux_same, cfg_bits, cell_q[row][col]);
             end
          end
       end
@@ -154,7 +155,8 @@ module diferential_cell
     input          en,
     input [B-1:0]  in1,
     input [B-1:0]  in2,
-    input [2:0]    cfg,
+    input          mux_same,  // whether we have a single input
+    input [4:0]    cfg,
     output [B-1:0] q
     );
 
@@ -166,7 +168,7 @@ module diferential_cell
          case(cfg[1:0])
            0:  f_out = in1 | in2;
            1:  f_out = in1 & in2;
-           2:  f_out = in1;
+           2:  f_out = in1 + 1;
            3:  f_out = in2;
          endcase
       end else begin
@@ -184,6 +186,6 @@ module diferential_cell
 
    // This the fact that we have non-registered outputs potentially could have cycles.
    // I'm curious what the synthesis tools will do here.
-   // assign q = cfg[1] ? dff : f_out;
-   assign q = dff;
+   assign q = cfg[2] ? f_out : dff;
+   // assign q = dff;
 endmodule

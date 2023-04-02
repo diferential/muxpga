@@ -56,6 +56,7 @@ module diferential_muxpga (
 				else begin : genblk1
 					localparam cfg_i = 2 * (((row - 1) * COLS) + col);
 					wire [3:0] mux_bits = cell_cfg[cfg_i];
+					wire mux_same = mux_bits[1:0] == mux_bits[3:2];
 					wire [3:0] cfg_bits = cell_cfg[cfg_i + 1];
 					reg [3:0] cell_in1;
 					reg [3:0] cell_in2;
@@ -92,6 +93,7 @@ module diferential_muxpga (
 						.en(en),
 						.in1(cell_in1),
 						.in2(cell_in2),
+						.mux_same(mux_same),
 						.cfg(cfg_bits),
 						.q(cell_q[(((4 - row) * 3) + (2 - col)) * 4+:4])
 					);
@@ -146,6 +148,7 @@ module diferential_cell (
 	en,
 	in1,
 	in2,
+	mux_same,
 	cfg,
 	q
 );
@@ -155,7 +158,8 @@ module diferential_cell (
 	input en;
 	input [B - 1:0] in1;
 	input [B - 1:0] in2;
-	input [2:0] cfg;
+	input mux_same;
+	input [4:0] cfg;
 	output wire [B - 1:0] q;
 	reg [3:0] dff;
 	reg [3:0] f_out;
@@ -164,7 +168,7 @@ module diferential_cell (
 			case (cfg[1:0])
 				0: f_out = in1 | in2;
 				1: f_out = in1 & in2;
-				2: f_out = in1;
+				2: f_out = in1 + 1;
 				3: f_out = in2;
 			endcase
 		else
@@ -174,5 +178,5 @@ module diferential_cell (
 			dff <= 0;
 		else
 			dff <= f_out;
-	assign q = dff;
+	assign q = (cfg[2] ? f_out : dff);
 endmodule
