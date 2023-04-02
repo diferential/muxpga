@@ -184,15 +184,13 @@ module diferential_cell
       end
    end
 
-   // This the fact that we have non-registered outputs potentially could have cycles.
-
    wire [B-1:0] qq;
-   // Optionally skip DFF to make the cell combinational.
+   // Optionally skip DFF to make the cell combinational. Could have cycles.
    assign qq = cfg[2] ? f_out : dff;
 
    // Buffer to make YOSYS happy, otherwise we get combinational loop errors.
-  `ifdef COCOTB_SIM
-   sky130_fd_sc_hd__buf bufs[3:0] (.A(qq), .X(q) );
+  `ifdef EMILIAN_ADD_BUFS
+   sky130_fd_sc_hd__buf_2 bufs[3:0] (.A(qq), .X(q) );
   `else
    assign q = qq;
   `endif

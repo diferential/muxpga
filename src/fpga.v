@@ -180,5 +180,8 @@ module diferential_cell (
 			dff <= f_out;
 	wire [B - 1:0] qq;
 	assign qq = (cfg[2] ? f_out : dff);
-	assign q = qq;
+	sky130_fd_sc_hd__buf_2 bufs[3:0](
+		.A(qq),
+		.X(q)
+	);
 endmodule

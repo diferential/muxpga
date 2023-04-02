@@ -15,7 +15,15 @@ ifeq ($(EMILIAN_LOCAL_DEV),yes)
 fpga.v: fpga.sv
 	sv2v fpga.sv > fpga.v
 
+else ifeq ($(EMILIAN_LOCAL_DEV),gds)
+
+# My local setup complains about combinatorial loops when running GDS
+# add some bufs. Github actions do not error out on that.
+fpga.v: fpga.sv
+	sv2v -DEMILIAN_ADD_BUFS=y fpga.sv > fpga.v
+
 endif
+
 
 $(TESTS): fpga.v
 	@cd $@ && $(MAKE)
