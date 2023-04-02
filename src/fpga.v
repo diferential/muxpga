@@ -9,18 +9,18 @@ module diferential_muxpga (
 	wire reset = io_in[1];
 	wire [3:0] nibble_in = io_in[5:2];
 	wire [1:0] cmd = io_in[7:6];
-	localparam ROWS = 5;
+	localparam ROWS = 4;
 	localparam COLS = 3;
-	localparam CELLS = 12;
+	localparam CELLS = 9;
 	localparam CELL_BITS = 4;
 	localparam CFG_BITS = 4;
 	localparam INPUT_MUX_BITS = 2;
 	localparam BOTH_MUX_BITS = 4;
-	reg [3:0] cell_cfg [23:0];
-	wire [59:0] cell_q;
+	reg [3:0] cell_cfg [17:0];
+	wire [47:0] cell_q;
 	genvar i;
 	generate
-		for (i = 1; i < 24; i = i + 1'b1) begin : genblk1
+		for (i = 1; i < 18; i = i + 1'b1) begin : genblk1
 			always @(posedge clk)
 				if (reset)
 					cell_cfg[i] <= 0;
@@ -39,10 +39,10 @@ module diferential_muxpga (
 			cell_cfg[0] <= cell_cfg[0];
 	always @(*)
 		case (cmd)
-			0: io_out = {cell_cfg[23], 4'b0000};
+			0: io_out = {cell_cfg[17], 4'b0000};
 			1: io_out = {cell_q[0+:4], cell_q[8+:4]};
-			2: io_out = {cell_cfg[23], 4'b0000};
-			3: io_out = {cell_cfg[23], 4'b0000};
+			2: io_out = {cell_cfg[17], 4'b0000};
+			3: io_out = {cell_cfg[17], 4'b0000};
 			default: io_out = 8'b00000000;
 		endcase
 	genvar row;
@@ -51,7 +51,7 @@ module diferential_muxpga (
 		for (row = 0; row < ROWS; row = row + 1'b1) begin : genrow
 			for (col = 0; col < COLS; col = col + 1'b1) begin : gencol
 				if (row == 0) begin : genblk1
-					assign cell_q[(((4 - row) * 3) + (2 - col)) * 4+:4] = nibble_in;
+					assign cell_q[(((3 - row) * 3) + (2 - col)) * 4+:4] = nibble_in;
 				end
 				else begin : genblk1
 					localparam cfg_i = 2 * (((row - 1) * COLS) + col);
@@ -95,7 +95,7 @@ module diferential_muxpga (
 						.in2(cell_in2),
 						.mux_same(mux_same),
 						.cfg(cfg_bits),
-						.q(cell_q[(((4 - row) * 3) + (2 - col)) * 4+:4])
+						.q(cell_q[(((3 - row) * 3) + (2 - col)) * 4+:4])
 					);
 				end
 			end

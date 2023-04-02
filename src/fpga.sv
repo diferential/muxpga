@@ -10,7 +10,7 @@ module diferential_muxpga (
    wire [3:0]  nibble_in = io_in[5:2];
    wire [1:0]  cmd = io_in[7:6];
 
-   localparam  ROWS = 5;
+   localparam  ROWS = 4;
    localparam  COLS = 3;
    localparam  CELLS = (ROWS-1)*COLS;
 

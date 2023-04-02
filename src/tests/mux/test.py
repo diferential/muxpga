@@ -5,7 +5,7 @@ from cocotb.triggers import RisingEdge, FallingEdge, Timer, ClockCycles
 CMD_SHIFT_CFG = 0;
 CMD_RUN = 1;
 
-ROWS = 5;
+ROWS = 4;
 COLS = 3;
 
 RST = 1
@@ -106,7 +106,7 @@ async def test_zigzag_dff(dut):
         # dut.io_in.value = val;
 
     # one big flip flop chain of 12 DFFs
-    expected = [0,0,0,0,0,0,0,0,0,0,0,0,1,2,3,4,5,6,7,8,9,10,11,12]
+    expected = [0,0,0,0,0,0,0,0,0,1,2,3,4,5,6,7,8,9]
     assert_equal_array(v, expected);
 
 @cocotb.test()
