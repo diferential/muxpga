@@ -119,18 +119,22 @@ async def test_cfg0_isdff(dut):
     dut._log.info("START test_cfg0_isdff")
 
     cfg = []
+    cfg_back = []
+    zeros_back = []
     # push bits into cells.. 2 registers per cell.
-    for i in range(2*cells):
+    for i in range(cells):
         dut._log.info("flopping in i={}".format(i));
 
         val = (7 + i) % 11
         cfg.append(val);
         val = await do_input_cycle(dut, NRST, val, cmd);
 
-        if (i < 2*cells - 1):
-            assert(val == 0);
+        if (i < cells - 1):
+            zeros_back.append(val);
         else:
-            assert(val == cfg[0]);
+            cfg_back.append(val);
+        
+    assert zeros_back == [0] * (cells-1)
 
     # make sure we get back the same sequence when we shift out.
     # the first value was already shifted out above

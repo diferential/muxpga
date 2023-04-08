@@ -1,4 +1,5 @@
 `default_nettype none
+`timescale 1ns/10ps
 
 module diferential_muxpga (
   input [7:0] io_in,
@@ -15,49 +16,35 @@ module diferential_muxpga (
    localparam  CELLS = (ROWS-1)*COLS;
 
    // input/output register bits
-   localparam  CELL_BITS = 4;
+   localparam  CELL_BITS = 2;
    // function value configuration bits.
    localparam  CFG_BITS = 4;
-   // each input gets a routing dff with these many bits.
    localparam  INPUT_MUX_BITS = 2;
-   localparam  BOTH_MUX_BITS = 4;
 
-   reg [3:0]   cell_cfg[2*CELLS - 1:0];
+   reg [3:0]   cell_cfg[CELLS - 1:0];
    wire [CELL_BITS-1:0] cell_q[0:ROWS-1][0:COLS-1];
 
-   generate
-      genvar            i;
+   reg [3:0]            global_cfg;
+   wire                 en_cells = global_cfg[0];
 
-      for (i = 1; i < 2*CELLS; i = i + 1'b1) begin
-         always @(posedge clk) begin
-            if (reset)
-              cell_cfg[i] <= 0;
-            else if (cmd == 0) begin
-               cell_cfg[i] <= cell_cfg[i-1];
-            end else begin
-               cell_cfg[i] <= cell_cfg[i];
-            end
-         end
+   always @(posedge clk) begin
+      if (reset)
+        global_cfg <= 0;
+      else if (cmd == 2)
+        // CMD == 2: global configuration set.
+        global_cfg <= nibble_in;
+      else begin
+         global_cfg <= global_cfg;
       end
-
-      always @(posedge clk) begin
-         if (reset)
-           cell_cfg[0] <= 0;
-         else if (cmd == 0) begin
-            cell_cfg[0] <= nibble_in;
-         end else begin
-            cell_cfg[0] <= cell_cfg[0];
-         end
-      end
-   endgenerate
+   end
 
    // TODO(emilian): Make output stationary out <= in by default.
    always @(*) begin
       case(cmd)
-        0: io_out = {cell_cfg[2*CELLS - 1], 4'b0};
-        1: io_out = {cell_q[ROWS - 1][COLS - 1], cell_q[ROWS - 1][0]};
-        2: io_out = {cell_cfg[2*CELLS - 1], 4'b0};
-        3: io_out = {cell_cfg[2*CELLS - 1], 4'b0};
+        0: io_out = {cell_cfg[CELLS - 1], 4'b0};
+        1: io_out = {cell_q[ROWS - 1][COLS - 1], cell_q[ROWS - 1][0], 4'b000};
+        2: io_out = {cell_cfg[CELLS - 1], 4'b0};
+        3: io_out = {cell_cfg[CELLS - 1], 4'b0};
         default:  io_out = 8'b0;
       endcase
    end
@@ -72,26 +59,41 @@ module diferential_muxpga (
                // First row is virtual .. it gets inputs only
                assign cell_q[row][col] = nibble_in;
             end else begin
-               // Rows 1..ROWS-1 have FPGA cells, each with two cfg nibbles.
-               localparam cfg_i = 2*((row - 1)*COLS + col);
-               localparam bigcell = col % 2;  // big cells at col1, 3...
+               // Rows 1..ROWS-1 have FPGA cells, each with one cfg nibbles.
+               localparam cfg_i = ((row - 1)*COLS + col);
 
-               wire [BOTH_MUX_BITS-1:0] mux_bits = cell_cfg[cfg_i];
-               wire                     mux_same = mux_bits[1:0] == mux_bits[3:2];
-               wire [BOTH_MUX_BITS-1:0] cfg_bits = cell_cfg[cfg_i + 1];
+               wire [CFG_BITS-1:0] left_cfg = cfg_i == 0 ? nibble_in : cell_cfg[cfg_i - 1];
+               localparam cminus1 = (COLS + col - 1) % COLS;
+               wire [CELL_BITS-1:0] left_q = cell_q[row][cminus1];
+
+               always @(posedge clk) begin
+                  if (reset)
+                    cell_cfg[cfg_i] <= 0;
+                  else if (cmd == 0)
+                    // CMD == 0: configuration shift register mode.
+                    cell_cfg[cfg_i] <= left_cfg;
+                  else begin
+                     // CMD != 0: execution mode for the cell.
+
+                     if (cell_cfg[cfg_i][3:2] == 2'b00)
+                       // CFG 0 is DFF from left cell, with mux bits used for DFF instead.
+                       cell_cfg[cfg_i] <= {cell_cfg[cfg_i][3:2], left_q};
+                     else
+                       // others CFG values are combinatorial.
+                       cell_cfg[cfg_i] <= cell_cfg[cfg_i];
+                  end
+               end
+
+               wire [1:0] mux_bits = cell_cfg[cfg_i][1:0];
+               wire [1:0] cfg_bits = cell_cfg[cfg_i][3:2];
 
                reg [CELL_BITS-1:0]      cell_in1;
-               reg [CELL_BITS-1:0]      cell_in2;
-
                diferential_mux_in #(CELL_BITS, ROWS, COLS, row, col)
-               inmux1(mux_bits[INPUT_MUX_BITS-1:0], cell_q, cell_in1);
+               inmux1(mux_bits, cell_q, cell_in1);
 
-               diferential_mux_in #(CELL_BITS, ROWS, COLS, row, col)
-               inmux2(mux_bits[BOTH_MUX_BITS-1:INPUT_MUX_BITS], cell_q, cell_in2);
-
-               wire en = cmd == 2'b01;
-               diferential_cell#(CELL_BITS, bigcell) c(clk, reset, en, cell_in1, cell_in2,
-                                                       mux_same, cfg_bits, cell_q[row][col]);
+               localparam odd = col % 2;
+               diferential_cell#(CELL_BITS, odd) c(clk, reset, en_cells, cfg_bits, mux_bits,
+                                                   left_q, cell_in1, cell_q[row][col]);
             end
          end
       end
@@ -148,61 +150,46 @@ endmodule
 // TODO(emilian): Refine cell function.
 module diferential_cell
   #(
-    parameter int B = 4,
-    parameter int BIGCELL = 0
+    parameter int B = 2,
+    parameter int odd = 1
    )
   (
     input          clk,
     input          reset,
     input          en,
+    input [1:0]    cfg,
+    input [1:0]    mux,
+    input [B-1:0]  left_q,
     input [B-1:0]  in1,
-    input [B-1:0]  in2,
-    input          mux_same,  // whether we have a single input
-    input [3:0]    cfg,
     output [B-1:0] q
     );
 
-   reg [3:0]    dff;
-   reg [3:0]    f_out;
+   reg [B-1:0]     f_out;
 
    always @(*) begin
-      if (en) begin
-         if (BIGCELL) begin
-           case(cfg[1:0])
-             0:  f_out = in1 | in2;
-             1:  f_out = in1 + in2;
-             2:  f_out = in1;
-             3:  f_out = in2;
-           endcase
-         end else begin  // !BIGCELL
-           case(cfg[1:0])
-             0:  f_out = in1 | in2;
-             1:  f_out = in1 & in2;
-             2:  f_out = in1 == in2;
-             3:  f_out = in1;
-           endcase
-         end
-      end else begin  // !en
-         f_out = dff;
-      end
+      case(cfg[1:0])
+        0:
+          // DFF from left_q using mux bits, inputs connected in generate loop.
+          f_out = mux;
+        1:
+          // Routing mux.
+          f_out = in1;
+        2:
+          // half of LUT2
+          f_out = left_q[0] ? {1'b0, mux[left_q[1]]} : {1'b1, left_q[1]};
+        3: 
+          f_out = ~({in1[0], in1[1]} & left_q);
+      endcase
    end
 
-   always @(posedge clk) begin
-      if (reset) begin
-         dff <= 0;
-      end else begin
-         dff <= f_out;
-      end
-   end
-
-   wire [B-1:0] qq;
-   // Optionally skip DFF to make the cell combinational. Could have cycles.
-   assign qq = cfg[2] ? f_out : dff;
+   // Output all 0s if en is false, to prevent activating combinational circuits when not running.
+   wire     f_out_en = f_out & {en, en};
 
    // Buffer to make YOSYS happy, otherwise we get combinational loop errors.
   `ifdef EMILIAN_ADD_BUFS
-   sky130_fd_sc_hd__buf_2 bufs[3:0] (.A(qq), .X(q) );
+   sky130_fd_sc_hd__buf_2 bufs[B-1:0] (.A(f_out_en), .X(q) );
+   // assign #0.00005 q = f_out & {en, en};
   `else
-   assign q = qq;
+   assign #0.05 q = f_out & {en, en};
   `endif
 endmodule
