@@ -5,8 +5,8 @@ from cocotb.triggers import RisingEdge, FallingEdge, Timer, ClockCycles
 CMD_SHIFT_CFG = 0;
 CMD_RUN = 1;
 
-ROWS = 4;
-COLS = 3;
+ROWS = 6;
+COLS = 5;
 
 RST = 1
 NRST = 0

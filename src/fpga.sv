@@ -11,8 +11,8 @@ module diferential_muxpga (
    wire [3:0]  nibble_in = io_in[5:2];
    wire [1:0]  cmd = io_in[7:6];
 
-   localparam  ROWS = 4;
-   localparam  COLS = 3;
+   localparam  ROWS = 6;
+   localparam  COLS = 5;
    localparam  CELLS = (ROWS-1)*COLS;
 
    // input/output register bits
@@ -64,7 +64,9 @@ module diferential_muxpga (
 
                wire [CFG_BITS-1:0] left_cfg = cfg_i == 0 ? nibble_in : cell_cfg[cfg_i - 1];
                localparam cminus1 = (COLS + col - 1) % COLS;
+               localparam rminus1 = row - 1;
                wire [CELL_BITS-1:0] left_q = cell_q[row][cminus1];
+               wire [CELL_BITS-1:0] down_q = cell_q[rminus1][col];
 
                always @(posedge clk) begin
                   if (reset)
@@ -93,7 +95,7 @@ module diferential_muxpga (
 
                localparam odd = col % 2;
                diferential_cell#(CELL_BITS, odd) c(clk, reset, en_cells, cfg_bits, mux_bits,
-                                                   left_q, cell_in1, cell_q[row][col]);
+                                                   left_q, down_q, cell_in1, cell_q[row][col]);
             end
          end
       end
@@ -120,14 +122,13 @@ module diferential_mux_in
    localparam          cminus1 = (COLS + col - 1) % COLS;
    localparam          cplus1 = (COLS + col + 1) % COLS;
 
-   if (col == 0 || col == 1) begin
+   if (col == 0 || col == 1 || col == (COLS - 1)) begin
       always @(*) begin
          case(sel)
            0:  q = cell_q[rminus1][col];
            1:  q = cell_q[rplus1][col];
-           2:  q = cell_q[row][cminus1];
-           // Since col == 0 is routed already with cases 0&1 or 2 above, we make this special.
-           // Get input from a cell in the top row instead.
+           2:  q = cell_q[row][cplus1];
+           // We're already close to column 0, allow fast access to a cell in the top row instead.
            3:  q = cell_q[ROWS-1][(row+col) % COLS];
            // should never happen
            default:  q = 0;
@@ -138,7 +139,7 @@ module diferential_mux_in
          case(sel)
            0:  q = cell_q[rminus1][col];
            1:  q = cell_q[rplus1][col];
-           2:  q = cell_q[row][cminus1];
+           2:  q = cell_q[row][cplus1];
            3:  q = cell_q[row][0];
            // should never happen
            default:  q = 0;
@@ -160,6 +161,7 @@ module diferential_cell
     input [1:0]    cfg,
     input [1:0]    mux,
     input [B-1:0]  left_q,
+    input [B-1:0]  down_q,
     input [B-1:0]  in1,
     output [B-1:0] q
     );
@@ -178,7 +180,8 @@ module diferential_cell
           // half of LUT2
           f_out = left_q[0] ? {1'b0, mux[left_q[1]]} : {1'b1, left_q[1]};
         3: 
-          f_out = ~({in1[0], in1[1]} & left_q);
+          // mix mux - one bit from left and one bit from down.
+          f_out = {left_q[mux[0]], down_q[mux[1]]};
       endcase
    end
 

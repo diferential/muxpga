@@ -13,7 +13,7 @@ ifneq ($(GATES),yes)
 VERILOG_SOURCES += $(PWD)/tb.v $(SRC_TOPDIR)/fpga.v 
 
 # we use the gates directly in the design for the buffers, include these.
-VERILOG_SOURCES += $(PDK_ROOT)/sky130B/libs.ref/sky130_fd_sc_hd/verilog/primitives.v
+# VERILOG_SOURCES += $(PDK_ROOT)/sky129B/libs.ref/sky130_fd_sc_hd/verilog/primitives.v
 VERILOG_SOURCES += $(PDK_ROOT)/sky130B/libs.ref/sky130_fd_sc_hd/verilog/sky130_fd_sc_hd.v
 
 else

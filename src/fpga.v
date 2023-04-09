@@ -9,14 +9,14 @@ module diferential_muxpga (
 	wire reset = io_in[1];
 	wire [3:0] nibble_in = io_in[5:2];
 	wire [1:0] cmd = io_in[7:6];
-	localparam ROWS = 4;
-	localparam COLS = 3;
-	localparam CELLS = 9;
+	localparam ROWS = 6;
+	localparam COLS = 5;
+	localparam CELLS = 25;
 	localparam CELL_BITS = 2;
 	localparam CFG_BITS = 4;
 	localparam INPUT_MUX_BITS = 2;
-	reg [3:0] cell_cfg [8:0];
-	wire [23:0] cell_q;
+	reg [3:0] cell_cfg [24:0];
+	wire [59:0] cell_q;
 	reg [3:0] global_cfg;
 	wire en_cells = global_cfg[0];
 	always @(posedge clk)
@@ -28,10 +28,10 @@ module diferential_muxpga (
 			global_cfg <= global_cfg;
 	always @(*)
 		case (cmd)
-			0: io_out = {cell_cfg[8], 4'b0000};
-			1: io_out = {cell_q[0+:2], cell_q[4+:2], 4'b0000};
-			2: io_out = {cell_cfg[8], 4'b0000};
-			3: io_out = {cell_cfg[8], 4'b0000};
+			0: io_out = {cell_cfg[24], 4'b0000};
+			1: io_out = {cell_q[0+:2], cell_q[8+:2], 4'b0000};
+			2: io_out = {cell_cfg[24], 4'b0000};
+			3: io_out = {cell_cfg[24], 4'b0000};
 			default: io_out = 8'b00000000;
 		endcase
 	genvar row;
@@ -40,13 +40,15 @@ module diferential_muxpga (
 		for (row = 0; row < ROWS; row = row + 1'b1) begin : genrow
 			for (col = 0; col < COLS; col = col + 1'b1) begin : gencol
 				if (row == 0) begin : genblk1
-					assign cell_q[(((3 - row) * 3) + (2 - col)) * 2+:2] = nibble_in;
+					assign cell_q[(((5 - row) * 5) + (4 - col)) * 2+:2] = nibble_in;
 				end
 				else begin : genblk1
 					localparam cfg_i = ((row - 1) * COLS) + col;
 					wire [3:0] left_cfg = (cfg_i == 0 ? nibble_in : cell_cfg[cfg_i - 1]);
 					localparam cminus1 = ((COLS + col) - 1) % COLS;
-					wire [1:0] left_q = cell_q[(((3 - row) * 3) + (2 - cminus1)) * 2+:2];
+					localparam rminus1 = row - 1;
+					wire [1:0] left_q = cell_q[(((5 - row) * 5) + (4 - cminus1)) * 2+:2];
+					wire [1:0] down_q = cell_q[(((5 - rminus1) * 5) + (4 - col)) * 2+:2];
 					always @(posedge clk)
 						if (reset)
 							cell_cfg[cfg_i] <= 0;
@@ -83,8 +85,9 @@ module diferential_muxpga (
 						.cfg(cfg_bits),
 						.mux(mux_bits),
 						.left_q(left_q),
+						.down_q(down_q),
 						.in1(cell_in1),
-						.q(cell_q[(((3 - row) * 3) + (2 - col)) * 2+:2])
+						.q(cell_q[(((5 - row) * 5) + (4 - col)) * 2+:2])
 					);
 				end
 			end
@@ -109,12 +112,12 @@ module diferential_mux_in (
 	localparam cminus1 = ((COLS + col) - 1) % COLS;
 	localparam cplus1 = ((COLS + col) + 1) % COLS;
 	generate
-		if ((col == 0) || (col == 1)) begin : genblk1
+		if (((col == 0) || (col == 1)) || (col == (COLS - 1))) begin : genblk1
 			always @(*)
 				case (sel)
 					0: q = cell_q[((((ROWS - 1) - rminus1) * COLS) + ((COLS - 1) - col)) * B+:B];
 					1: q = cell_q[((((ROWS - 1) - rplus1) * COLS) + ((COLS - 1) - col)) * B+:B];
-					2: q = cell_q[((((ROWS - 1) - row) * COLS) + ((COLS - 1) - cminus1)) * B+:B];
+					2: q = cell_q[((((ROWS - 1) - row) * COLS) + ((COLS - 1) - cplus1)) * B+:B];
 					3: q = cell_q[((((ROWS - 1) - (ROWS - 1)) * COLS) + ((COLS - 1) - ((row + col) % COLS))) * B+:B];
 					default: q = 0;
 				endcase
@@ -124,7 +127,7 @@ module diferential_mux_in (
 				case (sel)
 					0: q = cell_q[((((ROWS - 1) - rminus1) * COLS) + ((COLS - 1) - col)) * B+:B];
 					1: q = cell_q[((((ROWS - 1) - rplus1) * COLS) + ((COLS - 1) - col)) * B+:B];
-					2: q = cell_q[((((ROWS - 1) - row) * COLS) + ((COLS - 1) - cminus1)) * B+:B];
+					2: q = cell_q[((((ROWS - 1) - row) * COLS) + ((COLS - 1) - cplus1)) * B+:B];
 					3: q = cell_q[((((ROWS - 1) - row) * COLS) + (COLS - 1)) * B+:B];
 					default: q = 0;
 				endcase
@@ -138,6 +141,7 @@ module diferential_cell (
 	cfg,
 	mux,
 	left_q,
+	down_q,
 	in1,
 	q
 );
@@ -149,6 +153,7 @@ module diferential_cell (
 	input [1:0] cfg;
 	input [1:0] mux;
 	input [B - 1:0] left_q;
+	input [B - 1:0] down_q;
 	input [B - 1:0] in1;
 	output wire [B - 1:0] q;
 	reg [B - 1:0] f_out;
@@ -157,7 +162,7 @@ module diferential_cell (
 			0: f_out = mux;
 			1: f_out = in1;
 			2: f_out = (left_q[0] ? {1'b0, mux[left_q[1]]} : {1'b1, left_q[1]});
-			3: f_out = ~({in1[0], in1[1]} & left_q);
+			3: f_out = {left_q[mux[0]], down_q[mux[1]]};
 		endcase
 	wire f_out_en = f_out & {en, en};
 	sky130_fd_sc_hd__buf_2 bufs[B - 1:0](
