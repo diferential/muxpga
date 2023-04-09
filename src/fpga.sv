@@ -11,8 +11,8 @@ module diferential_muxpga (
    wire [3:0]  nibble_in = io_in[5:2];
    wire [1:0]  cmd = io_in[7:6];
 
-   localparam  ROWS = 6;
-   localparam  COLS = 5;
+   localparam  ROWS = 7;
+   localparam  COLS = 6;
    localparam  CELLS = (ROWS-1)*COLS;
 
    // input/output register bits
